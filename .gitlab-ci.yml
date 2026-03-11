@@ -1,0 +1,158 @@
+variables:
+  DOCKER_REGISTRY: $CI_REGISTRY
+  IMAGE_NAME: $CI_REGISTRY_IMAGE
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+
+stages:
+  - build
+  - unit-test
+  - checkstyle
+  - sonar-analysis
+  - quality-gate
+  - docker-build
+  - update-deployment
+
+cache:
+  paths:
+    - .m2/repository/
+
+build:
+  stage: build
+  image: maven:3.9-eclipse-temurin-21
+  script:
+    - export MAVEN_OPTS="-Xmx512m -Xms256m"
+    - mvn clean install -DskipTests
+  artifacts:
+    paths:
+      - target/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+unit-test:
+  stage: unit-test
+  image: maven:3.9-eclipse-temurin-21
+  script:
+    - export MAVEN_OPTS="-Xmx512m -Xms256m"
+    - mvn test
+  artifacts:
+    reports:
+      junit: target/surefire-reports/TEST-*.xml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+checkstyle:
+  stage: checkstyle
+  image: maven:3.9-eclipse-temurin-21
+  script:
+    - export MAVEN_OPTS="-Xmx512m -Xms256m"
+    - mvn checkstyle:checkstyle
+  artifacts:
+    paths:
+      - target/checkstyle-result.xml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+sonar-analysis:
+  stage: sonar-analysis
+  image: sonarsource/sonar-scanner-cli:latest
+  script:
+    - |
+      sonar-scanner -Dsonar.login=$LOGIN \
+        -Dsonar.host.url=$HOST \
+        -Dsonar.projectKey=$Project \
+        -Dsonar.organization=$Organization \
+        -Dsonar.projectName=vprofile-repo \
+        -Dsonar.projectVersion=1.0 \
+        -Dsonar.sources=src/ \
+        -Dsonar.java.binaries=target/classes/com/visualpathit/account/controller/ \
+        -Dsonar.junit.reportsPath=target/surefire-reports/ \
+        -Dsonar.jacoco.reportsPath=target/jacoco.exec \
+        -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+quality-gate:
+  stage: quality-gate
+  image: curlimages/curl:latest
+  script:
+    - |
+      echo "Checking Quality Gate status..."
+      i=0
+      while [ $i -lt 30 ]; do
+        RESPONSE=$(curl -s -u $LOGIN: "$HOST/api/qualitygates/project_status?projectKey=$Project")
+        echo "API Response: $RESPONSE"
+        STATUS=$(echo "$RESPONSE" | grep -o '"status":"[^"]*' | head -1 | cut -d'"' -f4)
+        echo "Extracted Status: [$STATUS]"
+        echo "Status length: ${#STATUS}"
+        case "$STATUS" in
+          "OK")
+            echo "Quality Gate PASSED"
+            exit 0
+            ;;
+          "ERROR")
+            echo "Quality Gate FAILED"
+            exit 1
+            ;;
+          *)
+            echo "Status not recognized or still processing: [$STATUS]"
+            ;;
+        esac
+        echo "Waiting for analysis to complete..."
+        sleep 10
+        i=$((i + 1))
+      done
+      echo "Quality Gate check timed out"
+      exit 1
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+docker-build-push:
+  stage: docker-build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - echo "=== DEBUG VARIABLES ==="
+    - echo "CI_REGISTRY=$CI_REGISTRY"
+    - echo "CI_REGISTRY_IMAGE=$CI_REGISTRY_IMAGE"
+    - echo "IMAGE_NAME=$IMAGE_NAME"
+    - echo "CI_COMMIT_SHA=$CI_COMMIT_SHA"
+    - echo "CI_REGISTRY_USER=$CI_REGISTRY_USER"
+    - echo "========================"
+    - docker build -t $IMAGE_NAME:$CI_COMMIT_SHA -f Docker-files/app/multistage/Dockerfile .
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $IMAGE_NAME:$CI_COMMIT_SHA
+    - docker rmi $IMAGE_NAME:$CI_COMMIT_SHA || true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+update-deployment:
+  stage: update-deployment
+  image: alpine:latest
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - set -e
+    - apk add --no-cache git
+    - echo "=== DEBUG VARIABLES ==="
+    - echo "CHARTS_REPO_URL=$CHARTS_REPO_URL"
+    - echo "IMAGE_NAME=$IMAGE_NAME"
+    - echo "CI_COMMIT_SHA=$CI_COMMIT_SHA"
+    - echo "========================"
+    - git config --global user.email "gitlab-ci@example.com"
+    - git config --global user.name "GitLab CI"
+    - git clone https://oauth2:${CHARTS_REPO_TOKEN}@${CHARTS_REPO_URL} charts-repo
+    - cd charts-repo
+    - 'sed -i "/^app:/,/^[a-z]/ s|image:.*|image: ${IMAGE_NAME}|" vprofile-charts/values.yaml'
+    - 'sed -i "/^app:/,/^[a-z]/ s|tag:.*|tag: ${CI_COMMIT_SHA}|" vprofile-charts/values.yaml'
+    - git add vprofile-charts/values.yaml
+    - git commit -m "Update image to ${CI_COMMIT_SHA}" || echo "No changes to commit"
+    - git push origin main
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
