@@ -1,25 +1,17 @@
-# Prerequisites
-#
-- JDK 17 or 21
-- Maven 3.9
-- MySQL 8
+This project demonstrates a complete end-to-end DevOps workflow for deploying and managing a cloud-native application using modern DevOps tools and best practices.
 
-# Technologies 
-- Spring MVC
-- Spring Security
-- Spring Data JPA
-- Maven
-- JSP
-- Tomcat
-- MySQL
-- Memcached
-- Rabbitmq
-- ElasticSearch
-# Database
-Here,we used Mysql DB 
-sql dump file:
-- /src/main/resources/db_backup.sql
-- db_backup.sql file is a mysql dump file.we have to import this dump to mysql db server
-- > mysql -u <user_name> -p accounts < db_backup.sql
+The project focuses on:
 
+Infrastructure provisioning with Terraform
 
+Containerization using Docker
+
+Kubernetes orchestration
+
+CI/CD automation
+
+Secure secrets management
+
+Scalable cloud architecture on AWS
+
+It is designed as a real-world DevOps project showcasing how production systems are built and automated.
