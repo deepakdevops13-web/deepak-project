@@ -1,0 +1,46 @@
+// Metrics scraping and remote write to Prometheus
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://172.31.11.43:9090/api/v1/write"
+  }
+}
+
+prometheus.scrape "metrics_5000" {
+  targets = [{
+    __address__ = "localhost:5000",
+    __metrics_path__ = "/metrics",
+  }]
+  forward_to = [prometheus.remote_write.default.receiver]
+}
+
+prometheus.scrape "metrics_default" {
+  targets = [{
+    __address__ = "localhost:8080",  // Adjust port if different; assuming 8080 for /metrics endpoint
+    __metrics_path__ = "/metrics",
+  }]
+  forward_to = [prometheus.remote_write.default.receiver]
+}
+
+// Log collection from files and push to Loki
+
+local.file_match "titan_logs" {
+  path_targets = [{
+    __path__ = "/var/log/titan/*.log",
+    job      = "titan",
+    hostname = constants.hostname,
+  }]
+  sync_period = "5s"
+}
+
+loki.source.file "log_scrape" {
+  targets       = local.file_match.titan_logs.targets
+  forward_to    = [loki.write.loki.receiver]
+  tail_from_end = true
+}
+
+loki.write "loki" {
+  endpoint {
+    url = "http://172.31.15.39:3100/loki/api/v1/push"
+  }
+}
