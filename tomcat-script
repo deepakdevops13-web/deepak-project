@@ -12,12 +12,11 @@ INSTALL_DIR=/opt/tomcat
 
 echo "Detecting Linux distribution..."
 
-if [ -f /etc/debian_version ]; then
-    OS="debian"
-elif [ -f /etc/redhat-release ]; then
-    OS="redhat"
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS=$ID
 else
-    echo "Unsupported Linux distribution"
+    echo "Cannot detect operating system"
     exit 1
 fi
 
@@ -25,24 +24,33 @@ echo "Detected OS: $OS"
 
 echo "Installing Java and required packages..."
 
-if [ "$OS" = "debian" ]; then
-    sudo apt update -y
-    sudo apt install -y openjdk-17-jdk wget tar
+case $OS in
 
-elif [ "$OS" = "redhat" ]; then
-    if command -v dnf >/dev/null 2>&1; then
-        sudo dnf install -y java-17-amazon-corretto wget tar || sudo dnf install -y java-17-openjdk wget tar
-    else
-        sudo yum install -y java-17-openjdk wget tar
-    fi
-fi
+    ubuntu|debian)
+        sudo apt update -y
+        sudo apt install -y openjdk-17-jdk wget tar
+        ;;
+
+    amzn|centos|rhel|rocky|almalinux|fedora)
+        if command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y java-17-amazon-corretto wget tar || sudo dnf install -y java-17-openjdk wget tar
+        else
+            sudo yum install -y java-17-openjdk wget tar
+        fi
+        ;;
+
+    *)
+        echo "Unsupported OS: $OS"
+        exit 1
+        ;;
+
+esac
 
 echo "Detecting JAVA_HOME..."
 
 JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
 
-echo "JAVA_HOME detected as:"
-echo $JAVA_HOME
+echo "JAVA_HOME = $JAVA_HOME"
 
 echo "Creating Tomcat user..."
 
