@@ -58,27 +58,42 @@ echo "Detected OS: $OS"
 
 echo "Installing Java and required packages..."
 
+# Java install mode
+JAVA_MODE="pinned"     # change to "latest" if you want latest LTS
+
+# pinned version
+PINNED_JAVA_VERSION="17"
+
+if [ "$JAVA_MODE" = "latest" ]; then
+    JAVA_VERSION="21"   # current LTS
+else
+    JAVA_VERSION=$PINNED_JAVA_VERSION
+fi
+
+echo "Installing Java version: $JAVA_VERSION"
+
 case $OS in
 
-    ubuntu|debian)
-        sudo apt update -y
-        sudo apt install -y openjdk-17-jdk wget tar
-        ;;
+ubuntu|debian)
+    apt update -y
+    apt install -y openjdk-${JAVA_VERSION}-jdk wget tar
+    ;;
 
-    amzn|centos|rhel|rocky|almalinux|fedora)
-        if command -v dnf >/dev/null 2>&1; then
-            sudo dnf install -y java-17-amazon-corretto wget tar || sudo dnf install -y java-17-openjdk wget tar
-        else
-            sudo yum install -y java-17-openjdk wget tar
-        fi
-        ;;
+amzn)
+    dnf install -y java-${JAVA_VERSION}-amazon-corretto wget tar
+    ;;
 
-    *)
-        echo "Unsupported OS: $OS"
-        exit 1
-        ;;
+centos|rhel|rocky|almalinux|fedora)
+   dnf install -y java-21-openjdk-devel wget tar
+    ;;
+
+*)
+    echo "Unsupported OS: $OS"
+    exit 1
+    ;;
 
 esac
+
 
 echo "Detecting JAVA_HOME..."
 
@@ -157,4 +172,13 @@ echo "======================================"
 echo "Tomcat installation completed!"
 echo "Access your server:"
 echo "http://$PUBLIC_IP:8080"
+echo ""
+echo "Tomcat Installation Directory:"
+echo "$INSTALL_DIR"
+echo ""
+echo "Tomcat Logs:"
+echo "$INSTALL_DIR/logs"
+echo ""
+echo "Tomcat Webapps Directory:"
+echo "$INSTALL_DIR/webapps"
 echo "======================================"
