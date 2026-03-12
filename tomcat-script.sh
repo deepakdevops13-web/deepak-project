@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euxo pipefail
+set -euo pipefail
 
 # ---------------------------------------------------
 # Apache Tomcat Universal Installer
