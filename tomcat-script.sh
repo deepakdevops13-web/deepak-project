@@ -2,11 +2,26 @@
 
 set -euxo pipefail
 
-echo "======================================"
-echo "   Apache Tomcat Universal Installer"
-echo "======================================"
+if ! ping -c 1 google.com &> /dev/null; then
+  echo "No internet connection"
+  exit 1
+fi
 
-TOMCAT_VERSION=10.1.28
+if systemctl is-active --quiet tomcat; then
+  echo "Tomcat already running"
+  exit 0
+fi
+
+
+echo "=================================="
+echo "Apache Tomcat Universal Installer"
+echo "=================================="
+
+
+TOMCAT_VERSION=$(curl -s https://downloads.apache.org/tomcat/tomcat-10/ \
+| grep -oP 'v\K[0-9]+\.[0-9]+\.[0-9]+' \
+| head -1)
+
 TOMCAT_USER=tomcat
 INSTALL_DIR=/opt/tomcat
 
