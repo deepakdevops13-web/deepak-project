@@ -84,7 +84,21 @@ amzn)
     ;;
 
 centos|rhel|rocky|almalinux|fedora)
-   dnf install -y java-21-openjdk-devel wget tar
+
+    if [ "$JAVA_MODE" = "latest" ]; then
+        JAVA_PACKAGE=$(dnf list available "*openjdk*-devel" 2>/dev/null | awk '/openjdk.*devel/ {print $1}' | sort -V | tail -n1)
+    else
+        JAVA_PACKAGE="java-${PINNED_JAVA_VERSION}-openjdk-devel"
+    fi
+
+    if ! dnf list available $JAVA_PACKAGE &>/dev/null; then
+        echo "Pinned version not found, switching to latest Java"
+        JAVA_PACKAGE=$(dnf list available "*openjdk*-devel" 2>/dev/null | awk '/openjdk.*devel/ {print $1}' | sort -V | tail -n1)
+    fi
+
+    echo "Installing Java package: $JAVA_PACKAGE"
+
+    dnf install -y $JAVA_PACKAGE wget tar
     ;;
 
 *)
