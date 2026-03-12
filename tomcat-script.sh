@@ -2,6 +2,12 @@
 
 set -euxo pipefail
 
+# ---------------------------------------------------
+# Apache Tomcat Universal Installer
+# Author: Deepak Krishnan
+# GitHub: https://github.com/deepakdevops13-web
+# ---------------------------------------------------
+
 if ! ping -c 1 google.com &> /dev/null; then
   echo "No internet connection"
   exit 1
@@ -18,9 +24,22 @@ echo "Apache Tomcat Universal Installer"
 echo "=================================="
 
 
-TOMCAT_VERSION=$(curl -s https://downloads.apache.org/tomcat/tomcat-10/ \
-| grep -oP 'v\K[0-9]+\.[0-9]+\.[0-9]+' \
-| head -1)
+# Set mode: "latest" or "pinned"
+TOMCAT_MODE="pinned"   # change to "latest" if you want auto-updates
+
+# If pinned, set explicit version
+PINNED_VERSION="10.1.24"
+
+if [ "$TOMCAT_MODE" = "latest" ]; then
+    TOMCAT_VERSION=$(curl -s https://downloads.apache.org/tomcat/tomcat-10/ \
+    | grep -oP 'v\K[0-9]+\.[0-9]+\.[0-9]+' \
+    | head -1)
+else
+    TOMCAT_VERSION=$PINNED_VERSION
+fi
+
+echo "Installing Tomcat version: $TOMCAT_VERSION"
+
 
 TOMCAT_USER=tomcat
 INSTALL_DIR=/opt/tomcat
