@@ -109,8 +109,10 @@ echo "Starting Tomcat..."
 sudo systemctl enable tomcat
 sudo systemctl start tomcat
 
+PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+
 echo "======================================"
 echo "Tomcat installation completed!"
 echo "Access your server:"
-echo "http://SERVER_IP:8080"
+echo "http://$PUBLIC_IP:8080"
 echo "======================================"
