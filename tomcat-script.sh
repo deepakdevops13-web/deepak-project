@@ -169,9 +169,6 @@ if [ -z "$PUBLIC_IP" ]; then
 fi
 
 echo "======================================"
-echo "Tomcat installation completed!"
-echo "Access your server:"
-echo "http://$PUBLIC_IP:8080"
 echo ""
 echo "Tomcat Installation Directory:"
 echo "$INSTALL_DIR"
@@ -181,4 +178,8 @@ echo "$INSTALL_DIR/logs"
 echo ""
 echo "Tomcat Webapps Directory:"
 echo "$INSTALL_DIR/webapps"
+echo ""
+echo "Tomcat installation completed!"
+echo "Access your server:"
+echo "http://$PUBLIC_IP:8080"
 echo "======================================"
