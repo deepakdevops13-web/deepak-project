@@ -2,47 +2,75 @@
 
 set -e
 
-TOMCAT_USER="tomcat"
-TOMCAT_DIR="/opt/tomcat"
+echo "======================================"
+echo "   Apache Tomcat Universal Installer"
+echo "======================================"
+
+TOMCAT_VERSION=10.1.28
+TOMCAT_USER=tomcat
+INSTALL_DIR=/opt/tomcat
+
+echo "Detecting Linux distribution..."
+
+if [ -f /etc/debian_version ]; then
+    OS="debian"
+elif [ -f /etc/redhat-release ]; then
+    OS="redhat"
+else
+    echo "Unsupported Linux distribution"
+    exit 1
+fi
+
+echo "Detected OS: $OS"
 
 echo "Installing Java and required packages..."
 
-if command -v apt >/dev/null 2>&1; then
-    sudo apt update
-    sudo apt install -y openjdk-17-jdk curl wget
-elif command -v yum >/dev/null 2>&1; then
-    sudo yum install -y java-17-openjdk curl wget
-elif command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y java-17-openjdk curl wget
+if [ "$OS" = "debian" ]; then
+    sudo apt update -y
+    sudo apt install -y openjdk-17-jdk wget tar
+
+elif [ "$OS" = "redhat" ]; then
+    if command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y java-17-amazon-corretto wget tar || sudo dnf install -y java-17-openjdk wget tar
+    else
+        sudo yum install -y java-17-openjdk wget tar
+    fi
 fi
 
-echo "Creating tomcat user..."
-sudo useradd -r -m -U -d $TOMCAT_DIR -s /bin/false $TOMCAT_USER || true
+echo "Detecting JAVA_HOME..."
 
-echo "Downloading latest Tomcat..."
+JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+
+echo "JAVA_HOME detected as:"
+echo $JAVA_HOME
+
+echo "Creating Tomcat user..."
+
+sudo useradd -m -U -d $INSTALL_DIR -s /bin/false $TOMCAT_USER 2>/dev/null || true
+
+echo "Downloading Tomcat..."
 
 cd /tmp
 
-LATEST=$(curl -s https://downloads.apache.org/tomcat/tomcat-10/ | grep -Eo 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-VERSION=${LATEST#v}
-
-wget https://downloads.apache.org/tomcat/tomcat-10/$LATEST/bin/apache-tomcat-$VERSION.tar.gz
+wget https://downloads.apache.org/tomcat/tomcat-10/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz
 
 echo "Installing Tomcat..."
 
-sudo mkdir -p $TOMCAT_DIR
-sudo tar -xzf apache-tomcat-$VERSION.tar.gz -C $TOMCAT_DIR --strip-components=1
+sudo mkdir -p $INSTALL_DIR
+
+sudo tar -xzf apache-tomcat-${TOMCAT_VERSION}.tar.gz \
+    -C $INSTALL_DIR --strip-components=1
 
 echo "Setting permissions..."
 
-sudo chown -R $TOMCAT_USER:$TOMCAT_USER $TOMCAT_DIR
-sudo chmod +x $TOMCAT_DIR/bin/*.sh
+sudo chown -R $TOMCAT_USER:$TOMCAT_USER $INSTALL_DIR
+sudo chmod -R 755 $INSTALL_DIR
 
 echo "Creating systemd service..."
 
 sudo tee /etc/systemd/system/tomcat.service > /dev/null <<EOF
 [Unit]
-Description=Apache Tomcat Application Server
+Description=Apache Tomcat
 After=network.target
 
 [Service]
@@ -50,17 +78,14 @@ Type=simple
 User=$TOMCAT_USER
 Group=$TOMCAT_USER
 
-WorkingDirectory=$TOMCAT_DIR
+Environment=JAVA_HOME=$JAVA_HOME
+Environment=CATALINA_HOME=$INSTALL_DIR
+Environment=CATALINA_BASE=$INSTALL_DIR
 
-Environment=CATALINA_HOME=$TOMCAT_DIR
-Environment=CATALINA_BASE=$TOMCAT_DIR
-Environment=JAVA_HOME=/usr
+ExecStart=$INSTALL_DIR/bin/catalina.sh run
+ExecStop=$INSTALL_DIR/bin/shutdown.sh
 
-ExecStart=$TOMCAT_DIR/bin/catalina.sh run
-ExecStop=$TOMCAT_DIR/bin/shutdown.sh
-
-Restart=on-failure
-RestartSec=5
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
@@ -70,20 +95,13 @@ echo "Reloading systemd..."
 
 sudo systemctl daemon-reload
 
-echo "Enabling Tomcat service..."
-
-sudo systemctl enable tomcat
-
 echo "Starting Tomcat..."
 
+sudo systemctl enable tomcat
 sudo systemctl start tomcat
 
-echo ""
+echo "======================================"
 echo "Tomcat installation completed!"
-echo ""
-
-sudo systemctl status tomcat --no-pager
-
-echo ""
-echo "Access Tomcat at:"
-echo "http://<SERVER-IP>:8080"
+echo "Access your server:"
+echo "http://SERVER_IP:8080"
+echo "======================================"
