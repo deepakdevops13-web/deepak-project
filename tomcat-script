@@ -1,0 +1,89 @@
+#!/bin/bash
+
+set -e
+
+TOMCAT_USER="tomcat"
+TOMCAT_DIR="/opt/tomcat"
+
+echo "Installing Java and required packages..."
+
+if command -v apt >/dev/null 2>&1; then
+    sudo apt update
+    sudo apt install -y openjdk-17-jdk curl wget
+elif command -v yum >/dev/null 2>&1; then
+    sudo yum install -y java-17-openjdk curl wget
+elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y java-17-openjdk curl wget
+fi
+
+echo "Creating tomcat user..."
+sudo useradd -r -m -U -d $TOMCAT_DIR -s /bin/false $TOMCAT_USER || true
+
+echo "Downloading latest Tomcat..."
+
+cd /tmp
+
+LATEST=$(curl -s https://downloads.apache.org/tomcat/tomcat-10/ | grep -Eo 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+VERSION=${LATEST#v}
+
+wget https://downloads.apache.org/tomcat/tomcat-10/$LATEST/bin/apache-tomcat-$VERSION.tar.gz
+
+echo "Installing Tomcat..."
+
+sudo mkdir -p $TOMCAT_DIR
+sudo tar -xzf apache-tomcat-$VERSION.tar.gz -C $TOMCAT_DIR --strip-components=1
+
+echo "Setting permissions..."
+
+sudo chown -R $TOMCAT_USER:$TOMCAT_USER $TOMCAT_DIR
+sudo chmod +x $TOMCAT_DIR/bin/*.sh
+
+echo "Creating systemd service..."
+
+sudo tee /etc/systemd/system/tomcat.service > /dev/null <<EOF
+[Unit]
+Description=Apache Tomcat Application Server
+After=network.target
+
+[Service]
+Type=simple
+User=$TOMCAT_USER
+Group=$TOMCAT_USER
+
+WorkingDirectory=$TOMCAT_DIR
+
+Environment=CATALINA_HOME=$TOMCAT_DIR
+Environment=CATALINA_BASE=$TOMCAT_DIR
+Environment=JAVA_HOME=/usr
+
+ExecStart=$TOMCAT_DIR/bin/catalina.sh run
+ExecStop=$TOMCAT_DIR/bin/shutdown.sh
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "Reloading systemd..."
+
+sudo systemctl daemon-reload
+
+echo "Enabling Tomcat service..."
+
+sudo systemctl enable tomcat
+
+echo "Starting Tomcat..."
+
+sudo systemctl start tomcat
+
+echo ""
+echo "Tomcat installation completed!"
+echo ""
+
+sudo systemctl status tomcat --no-pager
+
+echo ""
+echo "Access Tomcat at:"
+echo "http://<SERVER-IP>:8080"
