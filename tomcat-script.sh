@@ -69,7 +69,7 @@ echo "JAVA_HOME = $JAVA_HOME"
 
 echo "Creating Tomcat user..."
 
-sudo useradd -m -U -d $INSTALL_DIR -s /bin/false $TOMCAT_USER 2>/dev/null || true
+sudo useradd -m -r -U -d $INSTALL_DIR -s /bin/false $TOMCAT_USER 2>/dev/null || true
 
 echo "Downloading Tomcat..."
 
@@ -88,7 +88,7 @@ sudo tar -xzf apache-tomcat-${TOMCAT_VERSION}.tar.gz \
 echo "Setting permissions..."
 
 sudo chown -R $TOMCAT_USER:$TOMCAT_USER $INSTALL_DIR
-sudo chmod -R 755 $INSTALL_DIR
+sudo chmod -R 750 $INSTALL_DIR
 
 echo "Creating systemd service..."
 
