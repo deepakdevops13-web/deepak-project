@@ -27,7 +27,7 @@ SonarQube internally runs on 9000
 | 80   | Nginx                |
 | 9000 | SonarQube (optional) |
 
-
+===========================================================
 ssh ubuntu@your-ec2-ip
 
 sudo apt update -y
@@ -41,7 +41,7 @@ sudo usermod -aG docker $USER
 
 mkdir sonarqube
 cd sonarqube
-
+============================================================
 vim docker-compose.yml
 
 version: "3"
@@ -88,10 +88,41 @@ networks:
   sonarnet:
 
 
+==============================================================
 
 
-
-docker compose up -d
+docker-compose up -d
 docker ps
 docker ps
+
+
+=================================================================
+
+Optional (Best Practice) → Nginx Reverse Proxy
+
+sudo apt install nginx -y
+sudo vim /etc/nginx/sites-available/default
+
+++++++
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass http://localhost:9000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
++++++++++
+
+
+sudo systemctl restart nginx
+
+
+
+
+
+
 
