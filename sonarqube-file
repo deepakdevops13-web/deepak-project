@@ -1,0 +1,97 @@
+Internet
+   │
+   │ 80 / 443
+   ▼
+Nginx (Reverse Proxy)
+   │
+   │ 9000
+   ▼
+Docker Container
+   ├── SonarQube
+   └── PostgreSQL (separate container)
+
+Why this design?
+
+Docker keeps SonarQube isolated
+
+PostgreSQL runs as its own container
+
+Nginx exposes port 80 (clean URL)
+
+SonarQube internally runs on 9000
+
+
+| Port | Purpose              |
+| ---- | -------------------- |
+| 22   | SSH                  |
+| 80   | Nginx                |
+| 9000 | SonarQube (optional) |
+
+
+ssh ubuntu@your-ec2-ip
+
+sudo apt update -y
+
+sudo apt install -y docker.io docker-compose
+
+sudo systemctl enable docker
+sudo systemctl start docker
+
+sudo usermod -aG docker $USER
+
+mkdir sonarqube
+cd sonarqube
+
+vim docker-compose.yml
+
+version: "3"
+
+services:
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    depends_on:
+      - db
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    networks:
+      - sonarnet
+
+  db:
+    image: postgres:15
+    container_name: sonarqube-db
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    volumes:
+      - postgresql:/var/lib/postgresql
+      - postgresql_data:/var/lib/postgresql/data
+    networks:
+      - sonarnet
+
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:
+  postgresql:
+  postgresql_data:
+
+networks:
+  sonarnet:
+
+
+
+
+
+docker compose up -d
+docker ps
+docker ps
+
