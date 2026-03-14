@@ -15,4 +15,3 @@ Configuration management with Ansible & Vagrant
 Secure secrets management
 
 Scalable cloud architecture on AWS
-#####
